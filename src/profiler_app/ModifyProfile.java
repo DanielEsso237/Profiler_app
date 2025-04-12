@@ -54,7 +54,7 @@ public class ModifyProfile extends JFrame {
         formPanel.add(createDynamicSection("Diplômes", new String[]{"Diplome", "Domaine", "Établissement", "Année d’obtention"}, diplomePanels));
         formPanel.add(createDynamicSection("Expériences", new String[]{"Poste", "Entreprise", "Année début", "Année fin", "Description expérience"}, experiencePanels));
         formPanel.add(createDynamicSection("Langues", new String[]{"Langue", "Niveau langue"}, languePanels));
-        formPanel.add(createDynamicSection("Visites médicales", new String[]{"Date visite (YYYY-MM-DD)", "Notes visite"}, visitePanels));
+        formPanel.add(createDynamicSection("Visites médicales", new String[]{"Date visite (YYYY-MM-DD)", "Antecedent", "hopital", "medecin"}, visitePanels));
 
         // Pré-remplir les champs
         loadProfileData();
@@ -182,6 +182,8 @@ public class ModifyProfile extends JFrame {
             JLabel lbl = new JLabel(label + " :");
             lbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             JTextField field = new JTextField();
+            // Définir un nom unique pour chaque JTextField
+            field.setName(label.replaceAll("[^a-zA-Z0-9]", "").toLowerCase() + "Field");
             entryFields.put(label, field);
             entryPanel.add(lbl);
             entryPanel.add(field);
@@ -288,14 +290,16 @@ public class ModifyProfile extends JFrame {
             }
 
             // Charger dynamiquement les visites médicales
-            String visiteSQL = "SELECT date_visite, notes FROM visites_medicales WHERE profil_id = ?";
+            String visiteSQL = "SELECT date_visite, antecedent, hopital, medecin FROM visites_medicales WHERE profil_id = ?";
             try (PreparedStatement ps = conn.prepareStatement(visiteSQL)) {
                 ps.setInt(1, profilId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        JPanel panel = createEntryPanel(new String[]{"Date visite (YYYY-MM-DD)", "Notes visite"}, visitePanels);
+                        JPanel panel = createEntryPanel(new String[]{"Date visite (YYYY-MM-DD)", "Antecedent", "hopital", "medecin"}, visitePanels);
                         ((JTextField) panel.getComponent(1)).setText(rs.getString("date_visite"));
-                        ((JTextField) panel.getComponent(3)).setText(rs.getString("notes"));
+                        ((JTextField) panel.getComponent(3)).setText(rs.getString("antecedent"));
+                        ((JTextField) panel.getComponent(5)).setText(rs.getString("hopital"));
+                        ((JTextField) panel.getComponent(7)).setText(rs.getString("medecin"));
                         visitePanels.get(0).add(panel);
                     }
                 }
@@ -403,6 +407,36 @@ public class ModifyProfile extends JFrame {
         return year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
     }
 
+    /**
+     * Trouve un JTextField dans un panneau par son nom.
+     */
+    private JTextField findTextFieldByName(JPanel panel, String name) {
+        for (Component comp : panel.getComponents()) {
+            if (comp instanceof JTextField && name.equals(comp.getName())) {
+                return (JTextField) comp;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Vérifie si les données de la visite sont valides.
+     */
+    private boolean isValidVisiteData(JTextField dateField, JTextField antecedentField) {
+        if (dateField == null || antecedentField == null ||
+            dateField.getText().trim().isEmpty() ||
+            antecedentField.getText().trim().isEmpty()) {
+            return false;
+        }
+        // Valider le format de la date (YYYY-MM-DD)
+        String dateText = dateField.getText().trim();
+        if (!dateText.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            JOptionPane.showMessageDialog(this, "Format de date invalide pour la visite (attendu : AAAA-MM-JJ)", "Erreur", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
     private boolean saveProfileToDatabase() {
         try (Connection conn = Utils.connectToDatabase()) {
             if (conn == null) return false;
@@ -502,17 +536,32 @@ public class ModifyProfile extends JFrame {
             }
 
             // Insérer les nouvelles visites médicales
-            for (JPanel panel : visitePanels.subList(1, visitePanels.size())) {
-                JTextField dateField = (JTextField) panel.getComponent(1);
-                if (!dateField.getText().isEmpty()) {
-                    String insertSQL = "INSERT INTO visites_medicales (profil_id, date_visite, notes) VALUES (?, ?, ?)";
-                    try (PreparedStatement ps = conn.prepareStatement(insertSQL)) {
-                        ps.setInt(1, profilId);
-                        ps.setString(2, dateField.getText());
-                        ps.setString(3, ((JTextField) panel.getComponent(3)).getText());
-                        ps.executeUpdate();
+            try {
+                String insertSQL = "INSERT INTO visites_medicales (profil_id, date_visite, antecedent, hopital, medecin) VALUES (?, ?, ?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insertSQL)) {
+                    for (JPanel panel : visitePanels.subList(1, visitePanels.size())) {
+                        JTextField dateField = findTextFieldByName(panel, "datevisiteyyyymmddField");
+                        JTextField antecedentField = findTextFieldByName(panel, "antecedentField");
+                        JTextField hopitalField = findTextFieldByName(panel, "hopitalField");
+                        JTextField medecinField = findTextFieldByName(panel, "medecinField");
+
+                        if (isValidVisiteData(dateField, antecedentField)) {
+                            ps.setInt(1, profilId);
+                            ps.setString(2, dateField.getText().trim());
+                            ps.setString(3, antecedentField.getText().trim());
+                            ps.setString(4, hopitalField != null ? hopitalField.getText().trim() : null);
+                            ps.setString(5, medecinField != null ? medecinField.getText().trim() : null);
+                            ps.addBatch();
+                        }
                     }
+                    int[] results = ps.executeBatch();
+                    System.out.println("Visites médicales insérées : " + results.length);
                 }
+            } catch (SQLException e) {
+                System.err.println("Erreur lors de l'insertion des visites médicales : " + e.getMessage());
+                JOptionPane.showMessageDialog(this, "Erreur lors de l'ajout des visites médicales : " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
+                conn.rollback();
+                return false;
             }
 
             conn.commit();

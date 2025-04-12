@@ -158,12 +158,25 @@ public class ProfileDetails extends JFrame {
 
             // 6. Visites médicales
             detailsPanel.add(createSectionTitle("Visites médicales"));
-            String visiteSQL = "SELECT date_visite, notes FROM visites_medicales WHERE profil_id = ?";
+            String visiteSQL = "SELECT date_visite, antecedent, hopital, medecin FROM visites_medicales WHERE profil_id = ?";
             try (PreparedStatement ps = conn.prepareStatement(visiteSQL)) {
                 ps.setInt(1, profilId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        detailsPanel.add(createLabel(" - " + rs.getString("date_visite") + ": " + rs.getString("notes")));
+                        StringBuilder visiteDetails = new StringBuilder(" - Date: " + rs.getString("date_visite"));
+                        String antecedent = rs.getString("antecedent");
+                        String hopital = rs.getString("hopital");
+                        String medecin = rs.getString("medecin");
+                        if (antecedent != null && !antecedent.isEmpty()) {
+                            visiteDetails.append(", Antécédent: ").append(antecedent);
+                        }
+                        if (hopital != null && !hopital.isEmpty()) {
+                            visiteDetails.append(", Hôpital: ").append(hopital);
+                        }
+                        if (medecin != null && !medecin.isEmpty()) {
+                            visiteDetails.append(", Médecin: ").append(medecin);
+                        }
+                        detailsPanel.add(createLabel(visiteDetails.toString()));
                     }
                 }
             }
@@ -191,7 +204,7 @@ public class ProfileDetails extends JFrame {
             modifyBtn.setFocusPainted(false);
             modifyBtn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
             modifyBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            modifyBtn.addActionListener(e -> new ModifyProfile(profilId)); // Correction ici
+            modifyBtn.addActionListener(e -> new ModifyProfile(profilId));
 
             buttonPanel.add(modifyBtn);
             buttonPanel.add(deleteBtn);
