@@ -3,7 +3,6 @@ package profiler_app;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
-import javax.swing.border.*;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.nio.file.*;
@@ -59,9 +58,9 @@ public class WelcomeWindow {
     private void initialize() {
         frame = new JFrame();
         frame.setTitle("Profiler");
-        frame.setBounds(100, 100, 650, 500);
+        frame.setBounds(100, 100, 650, 500); // Taille initiale
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setResizable(false);
+        frame.setResizable(true); 
 
         JPanel gradientPanel = new JPanel() {
             @Override
@@ -79,7 +78,7 @@ public class WelcomeWindow {
 
         contentPanel = new JPanel();
         contentPanel.setOpaque(false);
-        contentPanel.setLayout(null);
+        contentPanel.setLayout(new BorderLayout()); // Remplacer null par BorderLayout
         gradientPanel.add(contentPanel, BorderLayout.CENTER);
 
         showWelcomeView();
@@ -88,9 +87,9 @@ public class WelcomeWindow {
     private void showWelcomeView() {
         contentPanel.removeAll();
 
+        // Titre en haut
         JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         titlePanel.setOpaque(false);
-        titlePanel.setBounds(0, -100, 650, 100);
 
         JLabel iconLabel = new JLabel() {
             @Override
@@ -110,23 +109,28 @@ public class WelcomeWindow {
         lblProfiler.setForeground(Color.WHITE);
         titlePanel.add(lblProfiler);
 
-        contentPanel.add(titlePanel);
+        contentPanel.add(titlePanel, BorderLayout.NORTH);
 
+        // Panneau central
         JPanel panel = new JPanel();
         panel.setBackground(Color.WHITE);
-        panel.setBounds(75, 150, 500, 250);
         panel.setBorder(BorderFactory.createCompoundBorder(
             new DropShadowBorder(new Color(0, 0, 0, 100), 10, 0.5f, 20, true, true, true, true),
             BorderFactory.createLineBorder(new Color(150, 200, 255), 2, true)
         ));
         panel.setLayout(new BorderLayout());
+        panel.setPreferredSize(new Dimension(500, 250)); // Taille préférée, mais extensible
 
         JLabel lblWelcome = new JLabel("Bienvenue dans Profiler !", SwingConstants.CENTER);
         lblWelcome.setFont(new Font("Segoe UI", Font.PLAIN, 36));
         lblWelcome.setForeground(new Color(40, 40, 40));
         panel.add(lblWelcome, BorderLayout.CENTER);
 
-        contentPanel.add(panel);
+        contentPanel.add(panel, BorderLayout.CENTER);
+
+        // Bouton en bas
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.setOpaque(false);
 
         btnStart = new JButton("Commencer");
         btnStart.setFont(new Font("Segoe UI", Font.BOLD, 18));
@@ -137,7 +141,6 @@ public class WelcomeWindow {
         btnStart.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnStart.setOpaque(true);
         btnStart.setBorderPainted(false);
-        btnStart.setBounds(225, 500, 200, 60);
 
         btnStart.addMouseListener(new MouseAdapter() {
             @Override
@@ -153,7 +156,8 @@ public class WelcomeWindow {
 
         btnStart.addActionListener(e -> showViewProfile());
 
-        contentPanel.add(btnStart);
+        buttonPanel.add(btnStart);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         animateEntrance();
 
@@ -166,24 +170,24 @@ public class WelcomeWindow {
         final int[] titleY = {-100};
         final int[] buttonY = {500};
         final int targetTitleY = 50;
-        final int targetButtonY = 410;
+        final int targetButtonY = 0; // Ajusté pour BorderLayout
 
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 if (titleY[0] < targetTitleY) {
                     titleY[0] += 5;
-                    contentPanel.getComponent(0).setLocation(0, titleY[0]);
+                    contentPanel.getComponent(0).setLocation(0, titleY[0]); // Animation du titre
                 }
 
                 if (buttonY[0] > targetButtonY) {
                     buttonY[0] -= 5;
-                    btnStart.setLocation(225, buttonY[0]);
+                    contentPanel.getComponent(2).setLocation(0, buttonY[0]); // Animation du bouton
                 }
 
                 if (titleY[0] >= targetTitleY && buttonY[0] <= targetButtonY) {
                     contentPanel.getComponent(0).setLocation(0, targetTitleY);
-                    btnStart.setLocation(225, targetButtonY);
+                    contentPanel.getComponent(2).setLocation(0, targetButtonY);
                     timer.cancel();
                 }
 
@@ -212,9 +216,43 @@ public class WelcomeWindow {
     }
 
     private void showViewProfile() {
-        contentPanel.removeAll();
-        new ViewProfile(contentPanel);
-        frame.revalidate();
-        frame.repaint();
+        JDialog loadingDialog = new JDialog(frame, "Chargement", true);
+        loadingDialog.setUndecorated(true);
+        loadingDialog.setSize(300, 100);
+        loadingDialog.setLocationRelativeTo(frame);
+
+        JPanel loadingPanel = new JPanel(new BorderLayout());
+        loadingPanel.setBackground(new Color(240, 240, 240));
+        loadingPanel.setBorder(BorderFactory.createLineBorder(new Color(150, 150, 150)));
+
+        JLabel loadingLabel = new JLabel("Chargement des profils...", SwingConstants.CENTER);
+        loadingLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        loadingPanel.add(loadingLabel, BorderLayout.CENTER);
+
+        JProgressBar progressBar = new JProgressBar();
+        progressBar.setIndeterminate(true);
+        progressBar.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        loadingPanel.add(progressBar, BorderLayout.SOUTH);
+
+        loadingDialog.add(loadingPanel);
+
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() {
+                contentPanel.removeAll();
+                new ViewProfile(contentPanel);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                loadingDialog.dispose();
+                frame.revalidate();
+                frame.repaint();
+            }
+        };
+
+        worker.execute();
+        loadingDialog.setVisible(true);
     }
 }

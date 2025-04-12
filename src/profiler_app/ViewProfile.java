@@ -215,11 +215,22 @@ public class ViewProfile {
         ));
 
         JLabel lblImage;
+        // Chemin de l'image par défaut 
+        String defaultImagePath = "image/user.png"; 
+
         try {
-            ImageIcon icon = new ImageIcon(imagePath);
-            Image scaledImage = icon.getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH);
-            lblImage = new JLabel(new ImageIcon(scaledImage));
+            // Vérifiez si imagePath est null ou vide
+            if (imagePath == null || imagePath.trim().isEmpty()) {
+                ImageIcon icon = new ImageIcon(defaultImagePath);
+                Image scaledImage = icon.getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH);
+                lblImage = new JLabel(new ImageIcon(scaledImage));
+            } else {
+                ImageIcon icon = new ImageIcon(imagePath);
+                Image scaledImage = icon.getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH);
+                lblImage = new JLabel(new ImageIcon(scaledImage));
+            }
         } catch (Exception e) {
+            // En cas d'erreur avec l'image par défaut ou l'image fournie
             lblImage = new JLabel("Pas d'image");
             lblImage.setFont(new Font("Segoe UI", Font.PLAIN, 12));
             lblImage.setForeground(new Color(150, 150, 150));

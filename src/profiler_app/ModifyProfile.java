@@ -51,7 +51,7 @@ public class ModifyProfile extends JFrame {
 
         // Sections dynamiques
         formPanel.add(createDynamicSection("Compétences", new String[]{"Compétence", "Niveau compétence"}, competencePanels));
-        formPanel.add(createDynamicSection("Diplômes", new String[]{"Niveau d’études", "Domaine", "Établissement", "Année d’obtention"}, diplomePanels));
+        formPanel.add(createDynamicSection("Diplômes", new String[]{"Diplome", "Domaine", "Établissement", "Année d’obtention"}, diplomePanels));
         formPanel.add(createDynamicSection("Expériences", new String[]{"Poste", "Entreprise", "Année début", "Année fin", "Description expérience"}, experiencePanels));
         formPanel.add(createDynamicSection("Langues", new String[]{"Langue", "Niveau langue"}, languePanels));
         formPanel.add(createDynamicSection("Visites médicales", new String[]{"Date visite (YYYY-MM-DD)", "Notes visite"}, visitePanels));
@@ -78,7 +78,7 @@ public class ModifyProfile extends JFrame {
         saveBtn.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
         saveBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         saveBtn.addActionListener(e -> {
-            if (saveProfileToDatabase()) {
+            if (validateFields() && saveProfileToDatabase()) {
                 JOptionPane.showMessageDialog(this, "Profil modifié avec succès !");
                 dispose();
             }
@@ -246,7 +246,7 @@ public class ModifyProfile extends JFrame {
                 ps.setInt(1, profilId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        JPanel panel = createEntryPanel(new String[]{"Niveau d’études", "Domaine", "Établissement", "Année d’obtention"}, diplomePanels);
+                        JPanel panel = createEntryPanel(new String[]{"Diplome", "Domaine", "Établissement", "Année d’obtention"}, diplomePanels);
                         ((JTextField) panel.getComponent(1)).setText(rs.getString("niveau_etudes"));
                         ((JTextField) panel.getComponent(3)).setText(rs.getString("domaine"));
                         ((JTextField) panel.getComponent(5)).setText(rs.getString("etablissement"));
@@ -300,10 +300,107 @@ public class ModifyProfile extends JFrame {
                     }
                 }
             }
+
+            revalidate();
+            repaint();
         } catch (SQLException e) {
             System.err.println("Erreur lors du chargement : " + e.getMessage());
             JOptionPane.showMessageDialog(this, "Erreur de chargement : " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    // Nouvelle méthode de validation des champs
+    private boolean validateFields() {
+        StringBuilder errors = new StringBuilder();
+
+        // Validation des champs de "profils"
+        if (fieldMap.get("Nom").getText().isEmpty() || fieldMap.get("Prenom").getText().isEmpty()) {
+            errors.append("Le nom et le prénom sont obligatoires.\n");
+        }
+
+        String ageText = fieldMap.get("Age").getText();
+        if (!ageText.isEmpty() && !isValidInteger(ageText)) {
+            errors.append("L'âge doit être un nombre entier (ex. 25).\n");
+        }
+
+        String telephoneText = fieldMap.get("Téléphone").getText();
+        if (!telephoneText.isEmpty() && !isValidPhoneNumber(telephoneText)) {
+            errors.append("Le téléphone doit être au format numérique (ex. 699999999).\n");
+        }
+
+        // Validation des diplômes (Année d’obtention)
+        for (JPanel panel : diplomePanels.subList(1, diplomePanels.size())) {
+            JTextField anneeField = (JTextField) panel.getComponent(7); // "Année d’obtention"
+            String anneeText = anneeField.getText();
+            if (!anneeText.isEmpty() && !isValidYear(anneeText)) {
+                errors.append("L’année d’obtention d’un diplôme doit être un nombre valide (ex. 2020).\n");
+                break;
+            }
+        }
+
+        // Validation des expériences (Année début, Année fin)
+        for (JPanel panel : experiencePanels.subList(1, experiencePanels.size())) {
+            JTextField debutField = (JTextField) panel.getComponent(5); // "Année début"
+            JTextField finField = (JTextField) panel.getComponent(7);   // "Année fin"
+            String debutText = debutField.getText();
+            String finText = finField.getText();
+            if (!debutText.isEmpty() && !isValidYear(debutText)) {
+                errors.append("L’année de début d’une expérience doit être un nombre valide (ex. 2018).\n");
+                break;
+            }
+            if (!finText.isEmpty() && !isValidYear(finText)) {
+                errors.append("L’année de fin d’une expérience doit être un nombre valide (ex. 2022).\n");
+                break;
+            }
+        }
+
+        // Validation des visites médicales (Date visite)
+        for (JPanel panel : visitePanels.subList(1, visitePanels.size())) {
+            JTextField dateField = (JTextField) panel.getComponent(1); // "Date visite"
+            String dateText = dateField.getText();
+            if (!dateText.isEmpty() && !isValidDate(dateText)) {
+                errors.append("La date de visite doit être au format YYYY-MM-DD (ex. 2023-05-14).\n");
+                break;
+            }
+        }
+
+        // Afficher les erreurs s’il y en a
+        if (errors.length() > 0) {
+            JOptionPane.showMessageDialog(this, errors.toString(), "Erreur de validation", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
+    // Méthodes de validation
+    private boolean isValidInteger(String value) {
+        try {
+            Integer.parseInt(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private boolean isValidPhoneNumber(String value) {
+        // Accepte uniquement des chiffres, espaces, ou tirets (ex. "0123456789" ou "012-345-6789")
+        return value.matches("[0-9\\s-]*");
+    }
+
+    private boolean isValidYear(String value) {
+        if (!isValidInteger(value)) return false;
+        int year = Integer.parseInt(value);
+        return year >= 1900 && year <= 2100; // Plage raisonnable pour les années
+    }
+
+    private boolean isValidDate(String value) {
+        // Vérifie le format YYYY-MM-DD
+        if (!value.matches("\\d{4}-\\d{2}-\\d{2}")) return false;
+        String[] parts = value.split("-");
+        int year = Integer.parseInt(parts[0]);
+        int month = Integer.parseInt(parts[1]);
+        int day = Integer.parseInt(parts[2]);
+        return year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
     }
 
     private boolean saveProfileToDatabase() {
@@ -311,12 +408,6 @@ public class ModifyProfile extends JFrame {
             if (conn == null) return false;
 
             conn.setAutoCommit(false);
-
-            // Vérification des champs obligatoires
-            if (fieldMap.get("Nom").getText().isEmpty() || fieldMap.get("Prenom").getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Le nom et le prénom sont obligatoires.", "Erreur", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
 
             // Mettre à jour "profils"
             String updateProfilSQL = "UPDATE profils SET nom=?, prenom=?, age=?, sexe=?, email=?, telephone=?, adresse=?, nationalite=?, photo=? WHERE id=?";
@@ -429,10 +520,6 @@ public class ModifyProfile extends JFrame {
         } catch (SQLException e) {
             System.err.println("Erreur lors de la modification : " + e.getMessage());
             JOptionPane.showMessageDialog(this, "Erreur lors de la modification : " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
-            return false;
-        } catch (NumberFormatException e) {
-            System.err.println("Erreur de format numérique : " + e.getMessage());
-            JOptionPane.showMessageDialog(this, "Vérifiez les champs numériques : " + e.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
             return false;
         }
     }

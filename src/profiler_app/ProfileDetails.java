@@ -67,10 +67,19 @@ public class ProfileDetails extends JFrame {
                         // Afficher la photo
                         String photoPath = rs.getString("photo");
                         JLabel photoLabel;
+                        // Chemin de l'image par défaut (remplacez par le chemin réel)
+                        String defaultPhotoPath = "image/user.png"; // Exemple de chemin
                         try {
-                            ImageIcon icon = new ImageIcon(photoPath);
-                            Image scaledImage = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
-                            photoLabel = new JLabel(new ImageIcon(scaledImage));
+                            // Vérifiez si photoPath est null ou vide
+                            if (photoPath == null || photoPath.trim().isEmpty()) {
+                                ImageIcon icon = new ImageIcon(defaultPhotoPath);
+                                Image scaledImage = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                                photoLabel = new JLabel(new ImageIcon(scaledImage));
+                            } else {
+                                ImageIcon icon = new ImageIcon(photoPath);
+                                Image scaledImage = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                                photoLabel = new JLabel(new ImageIcon(scaledImage));
+                            }
                         } catch (Exception e) {
                             photoLabel = new JLabel("Pas d’image disponible");
                             photoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -81,6 +90,7 @@ public class ProfileDetails extends JFrame {
                         // Informations personnelles
                         detailsPanel.add(createSectionTitle("Informations personnelles"));
                         detailsPanel.add(createLabel("Nom : " + rs.getString("nom")));
+                        detailsPanel.add(createLabel("Date de naissance : " + rs.getString("date_naissance")));
                         detailsPanel.add(createLabel("Prénom : " + rs.getString("prenom")));
                         detailsPanel.add(createLabel("Âge : " + rs.getInt("age")));
                         detailsPanel.add(createLabel("Sexe : " + rs.getString("sexe")));
